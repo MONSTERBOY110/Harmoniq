@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { firebaseReady, userContext } from "./helpers";
+import { firebaseReady, openRoomAndJoin, userContext } from "./helpers";
 
 test.describe("rooms", () => {
   test.setTimeout(180_000);
@@ -89,5 +89,23 @@ test.describe("rooms", () => {
     await expect(user.page.getByRole("heading", { name })).toBeVisible();
 
     await user.context.close();
+  });
+
+  test("leaving a room and pressing back does not walk you straight back in", async ({ browser }) => {
+    const host = await userContext(browser, "host");
+    const code = await openRoomAndJoin(host.page);
+    const page = host.page;
+
+    // The header leaves straight away; the control bar asks first. Either route must behave.
+    await page.getByRole("button", { name: "Leave", exact: true }).first().click();
+    const confirm = page.getByRole("button", { name: "Leave room" });
+    if (await confirm.isVisible().catch(() => false)) await confirm.click();
+    await expect(page).toHaveURL(/\/rooms$/, { timeout: 30_000 });
+
+    await page.goBack();
+    await page.waitForLoadState("domcontentloaded");
+    await expect(page).not.toHaveURL(new RegExp(`/room/${code}`), { timeout: 15_000 });
+
+    await host.context.close();
   });
 });

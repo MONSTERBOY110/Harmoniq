@@ -4,7 +4,8 @@ import {
   expectedPositionMs,
   HARD_SEEK_MS,
   initialCorrectionState,
-  SOFT_DRIFT_MS,
+  DRIFT_ENGAGE_MS,
+  DRIFT_RELEASE_MS,
   type CorrectionState,
   type PlaybackSnapshot,
 } from "./reconcile";
@@ -38,10 +39,39 @@ describe("expectedPositionMs", () => {
 describe("decideCorrection", () => {
   const t0 = 5_000_000;
 
-  it("does nothing for small drift", () => {
-    const { action } = decideCorrection(200, initialCorrectionState(), t0);
+  it("does nothing for drift too small to hear", () => {
+    const { action } = decideCorrection(40, initialCorrectionState(), t0);
     expect(action).toEqual({ kind: "none" });
-    expect(SOFT_DRIFT_MS).toBe(250);
+    expect(DRIFT_ENGAGE_MS).toBe(60);
+  });
+
+  it("corrects a steady bias that used to sit under the deadband forever", () => {
+    // Measured against the real player: followers settle about 88 ms behind and stay there.
+    const { action, state } = decideCorrection(-88, initialCorrectionState(), t0);
+    expect(action).toEqual({ kind: "rate", rate: 1.05 });
+    expect(state.nudging).toBe(true);
+  });
+
+  it("keeps correcting until the drift is nearly gone, not merely under the engage point", () => {
+    const engaged = decideCorrection(-88, initialCorrectionState(), t0).state;
+    // 38 ms is below the engage point but above release: a correction in flight carries on.
+    const next = decideCorrection(-38, engaged, t0 + 1000);
+    expect(next.action).toEqual({ kind: "rate", rate: 1.05 });
+    expect(next.state.nudging).toBe(true);
+  });
+
+  it("hands the rate back once the drift is inside the release band", () => {
+    const engaged = decideCorrection(-88, initialCorrectionState(), t0).state;
+    const settled = decideCorrection(-12, engaged, t0 + 2000);
+    expect(settled.action).toEqual({ kind: "rate", rate: 1 });
+    expect(settled.state.nudging).toBe(false);
+    expect(DRIFT_RELEASE_MS).toBe(20);
+  });
+
+  it("does not re-engage inside the hysteresis band, so the rate cannot flutter", () => {
+    const settled = decideCorrection(-12, initialCorrectionState(), t0).state;
+    const { action } = decideCorrection(-45, settled, t0 + 1000);
+    expect(action).toEqual({ kind: "none" });
   });
 
   it("nudges the rate for medium drift: slow down when ahead, speed up when behind", () => {
@@ -93,7 +123,12 @@ describe("decideCorrection", () => {
 
   it("returns to normal rate when drift settles after a nudge", () => {
     const nudged = decideCorrection(600, initialCorrectionState(), t0);
-    const settled = decideCorrection(50, nudged.state, t0 + 1_000);
+    // 50 ms is still outside the release band, so the correction is still running.
+    expect(decideCorrection(50, nudged.state, t0 + 1_000).action).toEqual({
+      kind: "rate",
+      rate: 0.95,
+    });
+    const settled = decideCorrection(10, nudged.state, t0 + 2_000);
     expect(settled.action).toEqual({ kind: "rate", rate: 1 });
   });
 });

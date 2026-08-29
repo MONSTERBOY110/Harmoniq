@@ -76,7 +76,9 @@ export function LiveRoom({ room, user, role, prefs }: Props) {
 
   async function onLeave() {
     await leaveRoom({ code: room.code });
-    router.push("/rooms");
+    // Replace rather than push: the room URL rejoins on sight, so leaving it in history means the
+    // back button walks straight back into the room you just left.
+    router.replace("/rooms");
   }
 
   return (
@@ -204,7 +206,47 @@ function RoomChrome({
         </div>
       ) : null}
 
-      <div className="grid flex-1 gap-px bg-line lg:grid-cols-[1fr_minmax(320px,38%)]">
+      <div className="grid flex-1 gap-px bg-line lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[1fr_minmax(320px,38%)] lg:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]">
+
+        {/* Mobile order follows the singing: faces first, then the words, then the room
+            chatter. On desktop the call and the queue stack in the right hand column. */}
+        <aside
+          aria-label="Video call"
+          className="relative flex max-h-[45dvh] flex-col bg-surface lg:col-start-2 lg:row-start-1 lg:max-h-none lg:min-h-0"
+        >
+          <ReactionsOverlay floating={reactions.floating} onDone={reactions.remove} />
+          {callState.status === "ready" ? (
+            <>
+              <VideoGrid hostUid={hostUid} className="flex-1" />
+              {connected ? (
+                <div className="flex items-center justify-between border-t border-line pr-2">
+                  <ControlBar onLeave={onLeave} />
+                  <ReactionBar onReact={reactions.react} />
+                </div>
+              ) : (
+                <p className="flex items-center justify-center gap-2 px-3 py-3 text-xs text-ink-muted">
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                  Connecting the call
+                </p>
+              )}
+            </>
+          ) : callState.status === "connecting" ? (
+            <div className="flex flex-1 items-center justify-center gap-2 p-6 text-sm text-ink-muted">
+              <Loader2Icon className="size-4 animate-spin text-amber" />
+              Connecting the call
+            </div>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <PhoneOffIcon className="size-5 text-gel-rose" />
+              <p className="text-sm font-medium text-ink">The call is not available</p>
+              <p className="max-w-xs text-xs text-ink-muted">{callState.message}</p>
+              <Button size="sm" variant="outline" onClick={onRetryCall}>
+                Try again
+              </Button>
+            </div>
+          )}
+        </aside>
+
         <Stage
           code={room.code}
           hostUid={hostUid}
@@ -213,82 +255,47 @@ function RoomChrome({
           members={members}
           playback={playback}
           onAddSong={() => setAddOpen(true)}
-          className="order-2 lg:order-1 lg:max-h-[calc(100dvh-3.5rem)]"
+          className="lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:min-h-0"
         />
 
-        <aside className="order-1 flex flex-col bg-surface lg:order-2 lg:max-h-[calc(100dvh-3.5rem)]">
-          <div className="relative flex max-h-[45%] flex-col border-b border-line lg:min-h-[40%]">
-            <ReactionsOverlay floating={reactions.floating} onDone={reactions.remove} />
-            {callState.status === "ready" ? (
-              <>
-                <VideoGrid hostUid={hostUid} className="flex-1" />
-                {connected ? (
-                  <div className="flex items-center justify-between border-t border-line pr-2">
-                    <ControlBar onLeave={onLeave} />
-                    <ReactionBar onReact={reactions.react} />
-                  </div>
-                ) : (
-                  <p className="flex items-center justify-center gap-2 px-3 py-3 text-xs text-ink-muted">
-                    <Loader2Icon className="size-3.5 animate-spin" />
-                    Connecting the call
-                  </p>
-                )}
-              </>
-            ) : callState.status === "connecting" ? (
-              <div className="flex flex-1 items-center justify-center gap-2 p-6 text-sm text-ink-muted">
-                <Loader2Icon className="size-4 animate-spin text-amber" />
-                Connecting the call
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-                <PhoneOffIcon className="size-5 text-gel-rose" />
-                <p className="text-sm font-medium text-ink">The call is not available</p>
-                <p className="max-w-xs text-xs text-ink-muted">{callState.message}</p>
-                <Button size="sm" variant="outline" onClick={onRetryCall}>
-                  Try again
-                </Button>
-              </div>
-            )}
-          </div>
-          <Tabs
-            value={tab}
-            onValueChange={(value) => {
-              const next = value as "queue" | "chat";
-              setTab(next);
-              if (next === "chat") setSeenCount(messages.length);
-            }}
-            className="min-h-0 flex-1 gap-0"
-          >
-            <TabsList variant="line" className="w-full justify-start px-2">
-              <TabsTrigger value="queue">
-                <ListMusicIcon />
-                Queue
-              </TabsTrigger>
-              <TabsTrigger value="chat">
-                <MessageSquareIcon />
-                Chat
-                {unread > 0 ? (
-                  <Badge variant="secondary" className="ml-1 h-4 min-w-4 px-1 text-[10px] text-amber">
-                    {unread > 9 ? "9+" : unread}
-                  </Badge>
-                ) : null}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="queue" className="min-h-0 flex-1">
-              <QueuePanel
-                code={room.code}
-                items={queue.items}
-                status={queue.status}
-                currentUid={user.uid}
-                isHost={isHost}
-                onAddSong={() => setAddOpen(true)}
-              />
-            </TabsContent>
-            <TabsContent value="chat" className="min-h-0 flex-1">
-              <ChatPanel code={room.code} me={adder} messages={messages} colors={colors} />
-            </TabsContent>
-          </Tabs>
-        </aside>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => {
+            const next = value as "queue" | "chat";
+            setTab(next);
+            if (next === "chat") setSeenCount(messages.length);
+          }}
+          className="min-h-0 gap-0 bg-surface lg:col-start-2 lg:row-start-2"
+        >
+          <TabsList variant="line" className="w-full justify-start px-2">
+            <TabsTrigger value="queue">
+              <ListMusicIcon />
+              Queue
+            </TabsTrigger>
+            <TabsTrigger value="chat">
+              <MessageSquareIcon />
+              Chat
+              {unread > 0 ? (
+                <Badge variant="secondary" className="ml-1 h-4 min-w-4 px-1 text-[10px] text-amber">
+                  {unread > 9 ? "9+" : unread}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="queue" className="min-h-0 flex-1">
+            <QueuePanel
+              code={room.code}
+              items={queue.items}
+              status={queue.status}
+              currentUid={user.uid}
+              isHost={isHost}
+              onAddSong={() => setAddOpen(true)}
+            />
+          </TabsContent>
+          <TabsContent value="chat" className="min-h-0 flex-1">
+            <ChatPanel code={room.code} me={adder} messages={messages} colors={colors} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <AddSongDialog

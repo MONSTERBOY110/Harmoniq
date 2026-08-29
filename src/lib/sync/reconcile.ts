@@ -1,7 +1,20 @@
 import type { PlaybackStatus } from "@/types/firestore";
 
-/** Below this the player is left alone. */
-export const SOFT_DRIFT_MS = 250;
+/**
+ * Drift correction uses two thresholds rather than one deadband.
+ *
+ * A single deadband leaves a standing error: measured against the real player, followers settle
+ * about 88 ms behind the host and stay there, because the offset is constant and never crosses the
+ * threshold. Correcting above ENGAGE and only releasing below RELEASE pulls that bias out, and the
+ * gap between the two stops the rate flapping around a single point.
+ *
+ * The step size is not a free choice: the YouTube player quantises setPlaybackRate, honouring 0.95
+ * and 1.05 while silently ignoring 0.98 and 1.02. So corrections come in 5% steps, which is why
+ * they must be rare and short rather than continuous.
+ */
+export const DRIFT_ENGAGE_MS = 60;
+/** Once correcting, keep going until the drift is this small. */
+export const DRIFT_RELEASE_MS = 20;
 /** From SOFT to HARD the playback rate is nudged; at or above HARD the player seeks. */
 export const HARD_SEEK_MS = 1200;
 /** After a seek, ignore drift for this long (the player needs time to settle). */
@@ -53,7 +66,9 @@ export function decideCorrection(
   const inCooldown = state.lastSeekAtMs !== null && nowMs - state.lastSeekAtMs < SEEK_COOLDOWN_MS;
   if (inCooldown) return { action: { kind: "none" }, state };
 
-  if (magnitude < SOFT_DRIFT_MS) {
+  // A correction already in flight runs to the tighter release point before handing the rate back.
+  const threshold = state.nudging ? DRIFT_RELEASE_MS : DRIFT_ENGAGE_MS;
+  if (magnitude < threshold) {
     const next = { ...state, largeStreak: 0, nudging: false };
     return state.nudging
       ? { action: { kind: "rate", rate: 1 }, state: next }

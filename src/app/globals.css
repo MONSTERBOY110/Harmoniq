@@ -123,6 +123,8 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01", "cv11";
+    /* The reference sets its grotesque slightly tight at text sizes; this is that, in em. */
+    letter-spacing: -0.02em;
   }
   ::selection {
     background: color-mix(in oklch, var(--amber) 35%, transparent);
@@ -134,11 +136,12 @@
   }
 }
 
-/* Display type: one grotesque, set light and large, tracked tight. Headlines never go heavy. */
+/* Display type: one grotesque, set medium and large, tracked tight. Weight and tracking follow the
+   reference, which sets its display face at Medium rather than Light. */
 @utility font-display {
   font-family: var(--font-display);
-  font-weight: 300;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
 @utility font-display-condensed {
   font-family: var(--font-display);

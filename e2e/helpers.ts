@@ -144,6 +144,9 @@ export type Debug = {
   positionMs?: number;
   videoId?: string | null;
   lyrics?: string;
+  expectedMs?: number;
+  driftMs?: number;
+  clockOffsetMs?: number;
 };
 
 export async function debug(page: Page): Promise<Debug> {
