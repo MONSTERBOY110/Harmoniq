@@ -98,10 +98,8 @@ test.describe("synchronized playback", () => {
 
     const code = await openRoomAndJoin(host.page);
     await joinByLink(friend.page, code);
-    // Tiles render as placeholders when cameras are off, so the count still proves both joined.
-    await expect(friend.page.locator("[data-slot=participant-tile]")).toHaveCount(2, {
-      timeout: 30_000,
-    });
+    // The header counts everyone connected, whether or not their camera is published.
+    await expect(friend.page.getByLabel("2 in the room")).toBeVisible({ timeout: 30_000 });
 
     await host.context.close();
 

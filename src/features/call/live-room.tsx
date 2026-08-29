@@ -28,7 +28,10 @@ import { leaveRoom } from "@/features/rooms/actions";
 import { useMembers, usePlaybackDoc, useRoomDoc } from "@/features/rooms/use-room-live";
 import type { ServerUser } from "@/lib/firebase/session";
 import type { MemberRole, RoomSummary } from "@/types/firestore";
+import { VideoComingSoonNote } from "./call-coming-soon";
 import { ControlBar } from "./control-bar";
+import { cn } from "@/lib/utils";
+import { AUDIO_ENABLED, CALL_ENABLED, VIDEO_ENABLED } from "./feature";
 import { ReactionBar, ReactionsOverlay, useReactions } from "./reactions";
 import { useEnsureColor } from "./use-ensure-color";
 import type { DevicePrefs } from "./device-prefs";
@@ -88,7 +91,7 @@ export function LiveRoom({ room, user, role, prefs }: Props) {
       token={token.status === "ready" ? token.token : undefined}
       connect={callState.status === "ready"}
       audio={
-        prefs.micOn
+        AUDIO_ENABLED && prefs.micOn
           ? {
               deviceId: prefs.micId ?? undefined,
               echoCancellation: true,
@@ -97,7 +100,7 @@ export function LiveRoom({ room, user, role, prefs }: Props) {
             }
           : false
       }
-      video={prefs.camOn ? { deviceId: prefs.cameraId ?? undefined } : false}
+      video={VIDEO_ENABLED && prefs.camOn ? { deviceId: prefs.cameraId ?? undefined } : false}
       options={ROOM_OPTIONS}
       onError={(error) => setConnectError(describeConnectError(error))}
       onDisconnected={(reason) => {
@@ -179,7 +182,7 @@ function RoomChrome({
           ) : null}
           <span
             className="inline-flex items-center gap-1.5 text-sm text-ink-muted"
-            aria-label={`${participants.length} on the call`}
+            aria-label={`${participants.length} in the room`}
           >
             <UsersIcon className="size-4" />
             <span className="tabular">{connected ? participants.length : "-"}</span>
@@ -206,18 +209,28 @@ function RoomChrome({
         </div>
       ) : null}
 
-      <div className="grid flex-1 gap-px bg-line lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[1fr_minmax(320px,38%)] lg:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "grid flex-1 gap-px bg-line lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[1fr_minmax(320px,38%)]",
+          // Tiles need half the column; a standing notice does not, so the queue takes the rest.
+          CALL_ENABLED
+            ? "lg:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]"
+            : "lg:grid-rows-[auto_minmax(0,1fr)]",
+        )}
+      >
 
         {/* Mobile order follows the singing: faces first, then the words, then the room
             chatter. On desktop the call and the queue stack in the right hand column. */}
         <aside
-          aria-label="Video call"
+          data-slot="call-region"
+          aria-label={VIDEO_ENABLED ? "Video call" : "Voice call, video coming soon"}
           className="relative flex max-h-[45dvh] flex-col bg-surface lg:col-start-2 lg:row-start-1 lg:max-h-none lg:min-h-0"
         >
           <ReactionsOverlay floating={reactions.floating} onDone={reactions.remove} />
           {callState.status === "ready" ? (
             <>
               <VideoGrid hostUid={hostUid} className="flex-1" />
+              {!VIDEO_ENABLED ? <VideoComingSoonNote /> : null}
               {connected ? (
                 <div className="flex items-center justify-between border-t border-line pr-2">
                   <ControlBar onLeave={onLeave} />

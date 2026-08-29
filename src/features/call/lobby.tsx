@@ -23,7 +23,9 @@ import type { MemberRole, RoomSummary } from "@/types/firestore";
 import { setMemberColor } from "@/features/rooms/member-actions";
 import { useMembers } from "@/features/rooms/use-room-live";
 import { singerColor } from "@/lib/singers/colors";
+import { VideoComingSoon } from "./call-coming-soon";
 import { ColorPicker } from "./color-picker";
+import { AUDIO_ENABLED, VIDEO_ENABLED } from "./feature";
 import { useEnsureColor } from "./use-ensure-color";
 import { useDevicePrefs, type DevicePrefs } from "./device-prefs";
 import { useMediaPreview } from "./use-media-preview";
@@ -37,7 +39,9 @@ type Props = {
 
 export function Lobby({ room, user, role, onJoin }: Props) {
   const [prefs, update] = useDevicePrefs();
-  const preview = useMediaPreview(prefs);
+  // With the call off there is nothing to preview, so do not ask for the devices at all.
+  // The camera is off, so only the microphone is opened for the level meter.
+  const preview = useMediaPreview(VIDEO_ENABLED ? prefs : { ...prefs, camOn: false });
   const videoRef = useRef<HTMLVideoElement>(null);
   const members = useMembers(room.code);
   const me = members.find((m) => m.uid === user.uid) ?? null;
@@ -75,8 +79,13 @@ export function Lobby({ room, user, role, onJoin }: Props) {
 
       <div className="mx-auto grid w-full max-w-5xl flex-1 gap-8 px-6 pb-12 lg:grid-cols-[1.25fr_1fr] lg:items-center">
         {/* Preview */}
-        <section aria-label="Camera preview" className="space-y-3">
+        <section
+          aria-label={VIDEO_ENABLED ? "Camera preview" : "Voice check"}
+          className="space-y-3"
+        >
           <div className="relative aspect-video overflow-hidden rounded-[10px] border border-line bg-surface">
+            {VIDEO_ENABLED ? (
+              <>
             <video
               ref={videoRef}
               autoPlay
@@ -105,6 +114,10 @@ export function Lobby({ room, user, role, onJoin }: Props) {
                 </p>
               </div>
             ) : null}
+              </>
+            ) : (
+              <VideoComingSoon />
+            )}
 
             {/* Mic meter */}
             <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-ground/70 px-2.5 py-1.5 backdrop-blur">
@@ -139,15 +152,17 @@ export function Lobby({ room, user, role, onJoin }: Props) {
               {prefs.micOn ? <MicIcon /> : <MicOffIcon />}
               {prefs.micOn ? "Mic on" : "Mic off"}
             </Button>
-            <Button
-              type="button"
-              variant={prefs.camOn ? "outline" : "destructive"}
-              aria-pressed={prefs.camOn}
-              onClick={() => update({ camOn: !prefs.camOn })}
-            >
-              {prefs.camOn ? <CameraIcon /> : <CameraOffIcon />}
-              {prefs.camOn ? "Camera on" : "Camera off"}
-            </Button>
+            {VIDEO_ENABLED ? (
+              <Button
+                type="button"
+                variant={prefs.camOn ? "outline" : "destructive"}
+                aria-pressed={prefs.camOn}
+                onClick={() => update({ camOn: !prefs.camOn })}
+              >
+                {prefs.camOn ? <CameraIcon /> : <CameraOffIcon />}
+                {prefs.camOn ? "Camera on" : "Camera off"}
+              </Button>
+            ) : null}
           </div>
 
           {preview.errorMessage ? (
@@ -156,14 +171,16 @@ export function Lobby({ room, user, role, onJoin }: Props) {
             </p>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <DeviceSelect
-              label="Camera"
-              value={prefs.cameraId}
-              devices={preview.cameras}
-              disabled={!prefs.camOn}
-              onChange={(cameraId) => update({ cameraId })}
-            />
+          <div className={cn("grid gap-3", VIDEO_ENABLED && "sm:grid-cols-2")}>
+            {VIDEO_ENABLED ? (
+              <DeviceSelect
+                label="Camera"
+                value={prefs.cameraId}
+                devices={preview.cameras}
+                disabled={!prefs.camOn}
+                onChange={(cameraId) => update({ cameraId })}
+              />
+            ) : null}
             <DeviceSelect
               label="Microphone"
               value={prefs.micId}
@@ -212,16 +229,19 @@ export function Lobby({ room, user, role, onJoin }: Props) {
               : " Your host controls playback; you can add songs to the queue."}
           </p>
 
-          <div className="flex gap-3 rounded-xl border border-amber/25 bg-amber/10 p-4">
-            <HeadphonesIcon className="mt-0.5 size-5 shrink-0 text-amber" />
-            <div className="text-sm">
-              <p className="font-medium text-ink">Wear headphones</p>
-              <p className="mt-0.5 text-ink-muted">
-                Speakers leak the song into your microphone and everyone hears an echo. Headphones
-                fix it.
-              </p>
+          {/* Only true while microphones are live. */}
+          {AUDIO_ENABLED ? (
+            <div className="flex gap-3 rounded-xl border border-amber/25 bg-amber/10 p-4">
+              <HeadphonesIcon className="mt-0.5 size-5 shrink-0 text-amber" />
+              <div className="text-sm">
+                <p className="font-medium text-ink">Wear headphones</p>
+                <p className="mt-0.5 text-ink-muted">
+                  Speakers leak the song into your microphone and everyone hears an echo. Headphones
+                  fix it.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="space-y-2">
             <Button size="lg" className="w-full" onClick={() => onJoin(prefs)}>

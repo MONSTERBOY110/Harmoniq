@@ -13,6 +13,7 @@ import {
   SkipForwardIcon,
   TimerResetIcon,
   UsersRoundIcon,
+  VideoOffIcon,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { RoomCodeInput } from "@/features/rooms/room-code-input";
 import { SINGER_COLORS } from "@/lib/singers/colors";
 import { cn } from "@/lib/utils";
 import { Reveal } from "./reveal";
+import { AUDIO_ENABLED, VIDEO_ENABLED } from "@/features/call/feature";
 
 /* ------------------------------------------------------------------ */
 /* Statement: three big light lines, the label's "about" register      */
@@ -401,17 +403,36 @@ export function Disc() {
 /* ------------------------------------------------------------------ */
 
 export function Expectations() {
+  // The first two notes describe live microphones, so they only hold while voice is on. The last
+  // one is the standing news about cameras, and drops out by itself when they come back.
+  const callItems = [
+    ...(AUDIO_ENABLED
+      ? [
+          {
+            Icon: HeadphonesIcon,
+            title: "Wear headphones",
+            body: "Speakers leak the song into your mic and everyone hears an echo. Headphones fix it.",
+          },
+          {
+            Icon: UsersRoundIcon,
+            title: "Voices arrive a beat late",
+            body: "Internet calls carry a small delay, roughly a tenth to a third of a second. The track stays in sync; your friends' voices trail it slightly.",
+          },
+        ]
+      : []),
+    ...(VIDEO_ENABLED
+      ? []
+      : [
+          {
+            Icon: VideoOffIcon,
+            title: "Seeing each other is coming soon",
+            body: "Cameras are off while we make them steady enough to sing to. You can hear each other, and the room keeps everyone on the same second.",
+          },
+        ]),
+  ];
+
   const items = [
-    {
-      Icon: HeadphonesIcon,
-      title: "Wear headphones",
-      body: "Speakers leak the song into your mic and everyone hears an echo. Headphones fix it.",
-    },
-    {
-      Icon: UsersRoundIcon,
-      title: "Voices arrive a beat late",
-      body: "Internet calls carry a small delay, roughly a tenth to a third of a second. The track stays in sync; your friends' voices trail it slightly.",
-    },
+    ...callItems,
     {
       Icon: MicVocalIcon,
       title: "The instrumental comes from YouTube",

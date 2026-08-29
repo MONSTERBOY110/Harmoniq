@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { saveDevicePrefs } from "./device-prefs";
+import { VIDEO_ENABLED } from "./feature";
 
 export function ControlBar({ onLeave }: { onLeave: () => Promise<void> | void }) {
   const mic = useTrackToggle({ source: Track.Source.Microphone });
@@ -63,19 +64,21 @@ export function ControlBar({ onLeave }: { onLeave: () => Promise<void> | void })
         {mic.enabled ? <MicIcon /> : <MicOffIcon />}
         <span className="hidden sm:inline">{mic.enabled ? "Mic" : "Muted"}</span>
       </Button>
-      <Button
-        variant={cam.enabled ? "outline" : "destructive"}
-        aria-pressed={cam.enabled}
-        aria-label={cam.enabled ? "Turn camera off" : "Turn camera on"}
-        disabled={cam.pending}
-        onClick={() => {
-          void cam.toggle();
-          saveDevicePrefs({ camOn: !cam.enabled });
-        }}
-      >
-        {cam.enabled ? <CameraIcon /> : <CameraOffIcon />}
-        <span className="hidden sm:inline">{cam.enabled ? "Camera" : "Camera off"}</span>
-      </Button>
+      {VIDEO_ENABLED ? (
+        <Button
+          variant={cam.enabled ? "outline" : "destructive"}
+          aria-pressed={cam.enabled}
+          aria-label={cam.enabled ? "Turn camera off" : "Turn camera on"}
+          disabled={cam.pending}
+          onClick={() => {
+            void cam.toggle();
+            saveDevicePrefs({ camOn: !cam.enabled });
+          }}
+        >
+          {cam.enabled ? <CameraIcon /> : <CameraOffIcon />}
+          <span className="hidden sm:inline">{cam.enabled ? "Camera" : "Camera off"}</span>
+        </Button>
+      ) : null}
 
       <DeviceMenu />
 
@@ -114,7 +117,13 @@ function DeviceMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button variant="outline" size="icon" aria-label="Choose camera and microphone" />}
+        render={
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={VIDEO_ENABLED ? "Choose camera and microphone" : "Choose microphone"}
+          />
+        }
       >
         <ChevronDownIcon />
       </DropdownMenuTrigger>
@@ -135,23 +144,27 @@ function DeviceMenu() {
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Camera</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={cams.activeDeviceId}
-            onValueChange={(id) => {
-              void cams.setActiveMediaDevice(String(id));
-              saveDevicePrefs({ cameraId: String(id) });
-            }}
-          >
-            {cams.devices.map((device, index) => (
-              <DropdownMenuRadioItem key={device.deviceId} value={device.deviceId}>
-                {device.label || `Camera ${index + 1}`}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
+        {VIDEO_ENABLED ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Camera</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={cams.activeDeviceId}
+                onValueChange={(id) => {
+                  void cams.setActiveMediaDevice(String(id));
+                  saveDevicePrefs({ cameraId: String(id) });
+                }}
+              >
+                {cams.devices.map((device, index) => (
+                  <DropdownMenuRadioItem key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Camera ${index + 1}`}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

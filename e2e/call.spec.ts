@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { CALL_ENABLED } from "../src/features/call/feature";
 import { firebaseReady, joinByLink, livekitReady, openRoomAndJoin, userContext } from "./helpers";
 
 test.describe("video call", () => {
@@ -6,6 +7,7 @@ test.describe("video call", () => {
   test.skip(!firebaseReady || !livekitReady, "Firebase or LiveKit env not configured");
 
   test("two people join the call and see each other's tiles", async ({ browser }) => {
+    test.skip(!CALL_ENABLED, "The video call is switched off");
     const host = await userContext(browser, "host");
     const guest = await userContext(browser, "friend");
 
@@ -32,6 +34,7 @@ test.describe("video call", () => {
   });
 
   test("on a laptop the whole grid fits, so nobody is below the fold", async ({ browser }) => {
+    test.skip(!CALL_ENABLED, "The video call is switched off");
     const host = await userContext(browser, "host");
     const guest = await userContext(browser, "friend");
     const third = await userContext(browser, "solo");
@@ -93,9 +96,13 @@ test.describe("video call", () => {
     await openRoomAndJoin(host.page, undefined, { camera: true });
 
     const page = host.page;
+    if (process.env.CAPTURE) {
+      await page.waitForTimeout(2500);
+      await page.screenshot({ path: ".impeccable/review/room-desktop.png" });
+    }
     await page.setViewportSize({ width: 390, height: 844 });
 
-    const call = page.locator("[data-slot=video-grid]");
+    const call = page.locator("[data-slot=call-region]");
     const stage = page.locator("[data-slot=stage]");
     const queue = page.locator("[data-slot=queue-panel]");
     await expect(call).toBeVisible();
