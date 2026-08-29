@@ -67,8 +67,11 @@ If you do not use the GitHub CLI, create an empty private repo on github.com and
    - Build command: `next build` (from `npm run build`)
    - Output directory: default
    - Install command: `npm install`
-3. Do **not** deploy yet. Open **Environment Variables** first (next step), otherwise the first
-   build succeeds but every page fails at runtime.
+3. Check **Settings → Node.js Version**. It must be **22 or newer**: `firebase-admin` requires it,
+   and on an older runtime every server rendered page returns 500 while static pages still work.
+   The `engines` field in `package.json` asks for this, but confirm the project setting agrees.
+4. Do **not** deploy yet. Open **Environment Variables** first (next step), otherwise the first
+   build succeeds but sign-in and rooms fail at runtime.
 
 ---
 
@@ -239,7 +242,8 @@ revoke the key in its console, generate a new one, update the Vercel variable, a
 
 | Symptom | Cause and fix |
 |---|---|
-| Every page 500s right after deploy | `FIREBASE_SERVICE_ACCOUNT_BASE64` missing or truncated. Re-encode and paste it as one line |
+| Server rendered pages 500 but `/signin` and images load | The runtime is older than Node 22, which `firebase-admin` needs. Set **Settings → Node.js Version** to 22 or newer and redeploy |
+| Every page 500s right after deploy | Read **Deployments → your deployment → Runtime Logs**; the stack trace names the module. Missing environment variables do not cause this: the app renders without them and fails later, at sign-in |
 | Sign in says "Something went wrong" | The domain is not in Firebase → Authentication → Authorized domains |
 | "The call is not available" in the room | LiveKit variables wrong, or `LIVEKIT_URL` still holds a placeholder. It must start with `wss://` |
 | Search returns "not responding right now" | YouTube key is referrer restricted or the quota is exhausted. Remove the restriction, or drop the key entirely to use the fallback |

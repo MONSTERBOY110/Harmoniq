@@ -10,11 +10,15 @@ import {
   Setlist,
   Statement,
 } from "@/features/landing/sections";
-import { getServerUser } from "@/lib/firebase/session";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/route-guard";
 
 export default async function Home() {
-  const user = await getServerUser().catch(() => null);
-  const signedIn = Boolean(user);
+  // The landing page only needs to know which door to point at, so it reads the cookie rather
+  // than verifying it. That keeps the public page independent of the admin SDK and its
+  // credentials; every page behind the door still verifies for real.
+  const jar = await cookies();
+  const signedIn = Boolean(jar.get(SESSION_COOKIE_NAME)?.value);
 
   return (
     <div className="relative">
