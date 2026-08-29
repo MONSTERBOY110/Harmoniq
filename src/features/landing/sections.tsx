@@ -487,7 +487,6 @@ export function LandingFooter() {
     <footer className="border-t border-line pb-24">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-5 py-8 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <Logo />
-        <p>Built on Next.js, LiveKit, Firebase, the YouTube player, and LRCLIB lyrics.</p>
       </div>
     </footer>
   );
