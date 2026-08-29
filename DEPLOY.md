@@ -67,9 +67,8 @@ If you do not use the GitHub CLI, create an empty private repo on github.com and
    - Build command: `next build` (from `npm run build`)
    - Output directory: default
    - Install command: `npm install`
-3. Check **Settings → Node.js Version**. It must be **22 or newer**: `firebase-admin` requires it,
-   and on an older runtime every server rendered page returns 500 while static pages still work.
-   The `engines` field in `package.json` asks for this, but confirm the project setting agrees.
+3. Check **Settings → Node.js Version**. Use **22 or newer**, which is what `firebase-admin`
+   declares and what the `engines` field in `package.json` asks for.
 4. Do **not** deploy yet. Open **Environment Variables** first (next step), otherwise the first
    build succeeds but sign-in and rooms fail at runtime.
 
@@ -233,6 +232,14 @@ photos or generated initials. Nothing to configure.
 **Rooms are never cleaned up automatically.** There is a cleanup route sketched in the plan but no
 scheduled job. Old rooms simply sit in Firestore; they cost reads only when someone opens them.
 
+**The `jose` override in `package.json` is load bearing.** `firebase-admin` depends on `jwks-rsa`,
+which does a CommonJS `require("jose")`. Version 6 of `jose` is ESM only. Node bridges that gap on
+your machine, but the serverless bundler does not, so `firebase-admin/auth` fails to load in
+production and every `/api/*` route returns an empty 500. The `overrides` entry pins `jose` to
+version 5 for `jwks-rsa` alone, which ships a CommonJS build and has every API it uses. LiveKit
+keeps `jose` 6 in the browser. Do not remove that override without redeploying and checking
+sign-in.
+
 **Secrets rotation.** If `FIREBASE_SERVICE_ACCOUNT_BASE64` or the LiveKit secret ever leaks,
 revoke the key in its console, generate a new one, update the Vercel variable, and redeploy.
 
@@ -242,8 +249,7 @@ revoke the key in its console, generate a new one, update the Vercel variable, a
 
 | Symptom | Cause and fix |
 |---|---|
-| Server rendered pages 500 but `/signin` and images load | The runtime is older than Node 22, which `firebase-admin` needs. Set **Settings → Node.js Version** to 22 or newer and redeploy |
-| Every page 500s right after deploy | Read **Deployments → your deployment → Runtime Logs**; the stack trace names the module. Missing environment variables do not cause this: the app renders without them and fails later, at sign-in |
+| Every `/api/*` route returns a 500 with an **empty body**, while static pages load | An empty 500 means the route module failed to load, so no handler ever ran. Read **Deployments → your deployment → Runtime Logs** for the stack trace. Missing environment variables do not cause this: the app renders without them and fails later, at sign-in. See the note on `jose` below |
 | Sign in says "Something went wrong" | The domain is not in Firebase → Authentication → Authorized domains |
 | "The call is not available" in the room | LiveKit variables wrong, or `LIVEKIT_URL` still holds a placeholder. It must start with `wss://` |
 | Search returns "not responding right now" | YouTube key is referrer restricted or the quota is exhausted. Remove the restriction, or drop the key entirely to use the fallback |
