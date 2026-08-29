@@ -72,6 +72,10 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
         >
           Harmoniq
           <LogoMark className="absolute -top-1 -right-6 size-[3vw] min-h-5 min-w-5 sm:-right-8 lg:-right-10" />
+          {/* Sits in the corner of the wordmark, so the name carries its own caveat. */}
+          <span className="absolute right-0 bottom-0 z-10 translate-y-[35%] rounded-full border border-amber/40 bg-ground/90 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] text-amber backdrop-blur sm:text-xs">
+            Beta
+          </span>
         </h1>
         <p data-hero-label className="mt-6 text-base text-ink sm:text-lg">
           Karaoke night, on a call

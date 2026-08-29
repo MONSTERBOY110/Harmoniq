@@ -22,6 +22,15 @@ test.describe("queue", () => {
       secondTitle.slice(0, 20),
     );
 
+    // A long song title must not push the room sideways: an auto grid column grows to its widest
+    // child, which used to put the queue controls 127 px off a phone screen.
+    for (const page of [host.page, friend.page]) {
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, "the room scrolls sideways with a song queued").toBeLessThanOrEqual(1);
+    }
+
     // The friend cannot remove the host's song; the host can.
     await expect(friend.page.getByRole("button", { name: /^Remove / })).toHaveCount(0);
     await host.page.getByRole("button", { name: /^Remove / }).click();

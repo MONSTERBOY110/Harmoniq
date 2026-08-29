@@ -135,7 +135,7 @@ function QueueRow({
       as="li"
       data-slot="queue-item"
       className={cn(
-        "flex items-center gap-2 rounded-lg border border-transparent bg-surface px-2 py-1.5",
+        "flex min-w-0 items-center gap-2 rounded-lg border border-transparent bg-surface px-2 py-1.5",
         canDrag && "hover:border-line",
       )}
     >

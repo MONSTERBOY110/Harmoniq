@@ -1,12 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PlayIcon, PlusIcon, UsersRoundIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ListMusicIcon,
+  PlayIcon,
+  PlusIcon,
+  ShuffleIcon,
+  UsersRoundIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LyricsOffsetControl } from "@/features/lyrics/lyrics-offset-control";
 import { LyricsPanel, type Singer } from "@/features/lyrics/lyrics-panel";
 import { PartsSheet } from "@/features/lyrics/parts-sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useLyrics } from "@/features/lyrics/use-lyrics";
 import { saveLyricsOffset, saveParts } from "@/features/queue/queue-actions";
 import type { QueueItem } from "@/features/queue/use-queue";
@@ -14,7 +30,7 @@ import type { Member } from "@/features/rooms/use-room-live";
 import type { ServerUser } from "@/lib/firebase/session";
 import { lyricsWindow } from "@/lib/lyrics/engine";
 import { autoIntroOffsetMs } from "@/lib/lyrics/intro-offset";
-import type { Parts } from "@/lib/lyrics/parts";
+import { alternateParts, type Parts } from "@/lib/lyrics/parts";
 import { cn } from "@/lib/utils";
 import type { PlaybackDoc } from "@/types/firestore";
 import { writePlayback } from "./playback-writes";
@@ -42,7 +58,16 @@ const NUDGE_STEP_MS = 250;
  * The stage: our lyrics are the show. The YouTube player supplying the instrumental stays
  * visible at the smallest size YouTube's terms allow (200 px tall), off to the side.
  */
-export function Stage({ code, hostUid, user, items, members, playback, onAddSong, className }: Props) {
+export function Stage({
+  code,
+  hostUid,
+  user,
+  items,
+  members,
+  playback,
+  onAddSong,
+  className,
+}: Props) {
   const isHost = hostUid === user.uid;
   const player = useRef<PlayerHandle | null>(null);
   const [playerReady, setPlayerReady] = useState(false);
@@ -95,6 +120,7 @@ export function Stage({ code, hostUid, user, items, members, playback, onAddSong
     .filter((m) => m.color)
     .sort((a, b) => a.joinedAtMs - b.joinedAtMs || a.uid.localeCompare(b.uid))
     .map((m) => ({ uid: m.uid, name: m.displayName, color: m.color! }));
+  const singerUids = singers.map((s) => s.uid);
   const parts: Parts = current?.parts ?? {};
   const canEditParts = !!current && (isHost || current.addedByUid === user.uid);
 
@@ -205,37 +231,83 @@ export function Stage({ code, hostUid, user, items, members, playback, onAddSong
   return (
     <section
       data-slot="stage"
-      className={cn("relative flex min-h-0 flex-col bg-ground", className)}
+      className={cn("bg-ground relative flex min-h-0 flex-col", className)}
       aria-label="Stage"
     >
       <header className="flex items-start justify-between gap-3 px-4 pt-4 sm:px-6">
         <div className="min-w-0">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink-muted">
+          <p className="text-ink-muted font-mono text-xs tracking-[0.2em] uppercase">
             {idle ? "Stage" : "Now singing"}
           </p>
-          <h2 className="font-display mt-1 truncate text-xl font-medium text-ink sm:text-2xl">
-            {current ? current.guessedTitle ?? current.title : idle ? "The stage is dark" : "Loading"}
+          <h2 className="font-display text-ink mt-1 truncate text-xl font-medium sm:text-2xl">
+            {current
+              ? (current.guessedTitle ?? current.title)
+              : idle
+                ? "The stage is dark"
+                : "Loading"}
           </h2>
           {current ? (
-            <p className="truncate text-sm text-ink-muted">
+            <p className="text-ink-muted truncate text-sm">
               {current.guessedArtist ?? current.channel}
-              <span className="mx-1.5 text-ink-faint">·</span>
+              <span className="text-ink-faint mx-1.5">·</span>
               added by {current.addedByName}
             </p>
           ) : null}
         </div>
         {canEditParts && lyrics.status === "synced" ? (
-          <Button variant="outline" size="sm" onClick={() => setPartsOpen(true)}>
-            <UsersRoundIcon />
-            Parts
-          </Button>
+          // A dropdown rather than a bare button: the menu names the thing people cannot guess
+          // from a label, which is that a song can be split between singers.
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+              <UsersRoundIcon />
+              Who sings what
+              <ChevronDownIcon className="opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Split this song</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={singers.length < 2}
+                  onClick={() => void savePartsFor(alternateParts(lyrics.lines, singerUids))}
+                >
+                  <ShuffleIcon />
+                  <span className="flex flex-col">
+                    Alternate lines
+                    <span className="text-ink-muted text-xs">
+                      {singers.length < 2
+                        ? "Needs two people in the room"
+                        : "Take turns, line by line"}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void savePartsFor({})}>
+                  <UsersRoundIcon />
+                  <span className="flex flex-col">
+                    Everyone sings
+                    <span className="text-ink-muted text-xs">No parts, all together</span>
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setPartsOpen(true)}>
+                <ListMusicIcon />
+                <span className="flex flex-col">
+                  Choose line by line
+                  <span className="text-ink-muted text-xs">Hand each line to a singer</span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </header>
 
       {/* The lyrics area scrolls inside itself, so loading lyrics never moves the transport bar. */}
       <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6 lg:grid-cols-[1fr_356px]">
         {/* Instrumental tile: visible, small, never hidden. */}
-        <aside className="relative order-1 w-full lg:order-2 lg:self-start" aria-label="Instrumental">
+        <aside
+          className="relative order-1 w-full lg:order-2 lg:self-start"
+          aria-label="Instrumental"
+        >
           <YouTubePlayer
             ref={player}
             initialVideoId={null}
@@ -244,16 +316,18 @@ export function Stage({ code, hostUid, user, items, members, playback, onAddSong
             onError={isHost ? host.onPlayerError : follower.onPlayerError}
             className={cn("min-h-[200px] w-full", idle && "opacity-30")}
           />
-          <p className="mt-1.5 truncate text-[11px] text-ink-faint">
-            {current ? `Instrumental: ${current.channel} on YouTube` : "The instrumental plays here"}
+          <p className="text-ink-faint mt-1.5 truncate text-[11px]">
+            {current
+              ? `Instrumental: ${current.channel} on YouTube`
+              : "The instrumental plays here"}
           </p>
           {!isHost && follower.blocked && !idle ? (
             <button
               type="button"
               onClick={follower.resume}
-              className="absolute inset-x-0 top-0 flex aspect-video flex-col items-center justify-center gap-2 rounded-xl bg-ground/85 text-ink backdrop-blur"
+              className="bg-ground/85 text-ink absolute inset-x-0 top-0 flex aspect-video flex-col items-center justify-center gap-2 rounded-xl backdrop-blur"
             >
-              <span className="inline-flex size-12 items-center justify-center rounded-full bg-amber text-amber-ink">
+              <span className="bg-amber text-amber-ink inline-flex size-12 items-center justify-center rounded-full">
                 <PlayIcon className="size-5" />
               </span>
               <span className="text-sm font-medium">Tap to play along</span>
@@ -264,8 +338,8 @@ export function Stage({ code, hostUid, user, items, members, playback, onAddSong
         {/* Lyrics: the stage itself. */}
         <div className="order-2 min-h-[220px] lg:order-1 lg:min-h-[min(46vh,26rem)]">
           {idle ? (
-            <div className="gel-wash flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-line px-6 py-10 text-center">
-              <p className="font-lyric max-w-sm text-xl text-ink-faint sm:text-2xl">
+            <div className="gel-wash border-line flex h-full flex-col items-center justify-center gap-3 rounded-xl border px-6 py-10 text-center">
+              <p className="font-lyric text-ink-faint max-w-sm text-xl sm:text-2xl">
                 {items.length === 0
                   ? "Add the first song and the lights come on."
                   : isHost

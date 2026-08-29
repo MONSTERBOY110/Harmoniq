@@ -211,7 +211,10 @@ function RoomChrome({
 
       <div
         className={cn(
-          "grid flex-1 gap-px bg-line lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[1fr_minmax(320px,38%)]",
+          // minmax(0,...) on every track: an auto column grows to its widest child's min content,
+          // so one long song title used to push the whole room sideways on a phone.
+          "grid flex-1 grid-cols-[minmax(0,1fr)] gap-px bg-line",
+          "lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_minmax(320px,38%)]",
           // Tiles need half the column; a standing notice does not, so the queue takes the rest.
           CALL_ENABLED
             ? "lg:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]"

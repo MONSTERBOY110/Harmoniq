@@ -1,8 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { addFirstResult, debug, firebaseReady, joinByLink, openRoomAndJoin, userContext } from "./helpers";
 
+async function openMenu(page: Page) {
+  await page.getByRole("button", { name: "Who sings what" }).click();
+}
+
 async function openParts(page: Page) {
-  await page.getByRole("button", { name: "Parts" }).click();
+  await openMenu(page);
+  await page.getByRole("menuitem", { name: /Choose line by line/ }).click();
   await expect(page.getByRole("heading", { name: "Who sings what" })).toBeVisible();
   // Alternating needs two singers with colours, which are handed out as people join.
   await expect(page.getByRole("button", { name: "Alternate lines" })).toBeEnabled({
@@ -102,6 +107,31 @@ test.describe("duet parts", () => {
       await expect(friendChip).toBeVisible({ timeout: 30_000 });
       expect(await hostChip.getAttribute("data-colour")).toBe(hostColour);
       expect(await friendChip.getAttribute("data-colour")).toBe(friendColour);
+    }
+
+    await host.context.close();
+    await friend.context.close();
+  });
+
+  test("the menu offers the split without opening the sheet", async ({ browser }) => {
+    const host = await userContext(browser, "host");
+    const friend = await userContext(browser, "friend");
+    const code = await openRoomAndJoin(host.page);
+    await joinByLink(friend.page, code);
+    await addFirstResult(host.page, "Coldplay Yellow karaoke");
+    await expect
+      .poll(async () => (await debug(host.page)).lyrics, { timeout: 90_000 })
+      .toBe("synced");
+
+    // The whole point of the dropdown: the option is readable without hunting for it.
+    await openMenu(host.page);
+    const alternate = host.page.getByRole("menuitem", { name: /Alternate lines/ });
+    await expect(alternate).toBeEnabled({ timeout: 30_000 });
+    await alternate.click();
+
+    // Both screens end up with per singer colours, straight from the menu.
+    for (const page of [host.page, friend.page]) {
+      await expect(page.locator("[data-slot=singer-chip]").first()).toBeVisible({ timeout: 30_000 });
     }
 
     await host.context.close();

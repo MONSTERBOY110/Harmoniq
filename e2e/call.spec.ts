@@ -33,8 +33,11 @@ test.describe("video call", () => {
     await guest.context.close();
   });
 
-  test("on a laptop the whole grid fits, so nobody is below the fold", async ({ browser }) => {
+  test("on a laptop the whole grid fits, so nobody is below the fold", async ({ browser }, info) => {
     test.skip(!CALL_ENABLED, "The video call is switched off");
+    // Below lg the tiles are a horizontal strip on purpose, so a fitted grid is not the shape
+    // under test. The phone layout has its own test below.
+    test.skip(info.project.name !== "desktop", "The fitted grid is a lg and up layout");
     const host = await userContext(browser, "host");
     const guest = await userContext(browser, "friend");
     const third = await userContext(browser, "solo");
