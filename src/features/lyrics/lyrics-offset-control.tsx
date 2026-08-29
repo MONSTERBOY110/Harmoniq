@@ -31,7 +31,9 @@ export function LyricsOffsetControl({
 }: Props) {
   return (
     <div
-      className={cn("hidden items-center gap-1 md:flex", className)}
+      // Reachable on a phone too: a karaoke intro can put the words half a minute out, and a
+      // host singing from a phone needs to be able to pull them back.
+      className={cn("flex items-center gap-0.5 sm:gap-1", className)}
       role="group"
       aria-label={label}
       data-slot="lyrics-offset"
@@ -47,7 +49,7 @@ export function LyricsOffsetControl({
       >
         <MinusIcon />
       </Button>
-      <span className="w-14 text-center font-mono text-xs text-ink-muted tabular">
+      <span className="w-9 text-center font-mono text-[10px] text-ink-muted tabular sm:w-14 sm:text-xs">
         {format(offsetMs)}
       </span>
       <Button
@@ -66,7 +68,7 @@ export function LyricsOffsetControl({
             }
           >
             <TimerResetIcon />
-            Now
+            <span className="hidden sm:inline">Now</span>
           </TooltipTrigger>
           <TooltipContent>Tap the moment the next line is sung</TooltipContent>
         </Tooltip>

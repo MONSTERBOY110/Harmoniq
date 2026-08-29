@@ -103,4 +103,31 @@ describe("buildKaraokeQuery", () => {
     expect(buildKaraokeQuery("bohemian rhapsody karaoke")).toBe("bohemian rhapsody karaoke");
     expect(buildKaraokeQuery("yellow instrumental")).toBe("yellow instrumental");
   });
+
+  it("takes the artist from a trailing credit in brackets", () => {
+    // Without an artist LRCLIB matches on title alone, which for "Yellow" returns a different
+    // song entirely. The bracket is the only place the artist appears in this shape.
+    expect(guessTrackMeta("Yellow - Acoustic karaoke (Coldplay)", "Acoustic Lounge")).toEqual({
+      artist: "Coldplay",
+      title: "Yellow",
+    });
+  });
+
+  it("does not mistake a noise bracket for an artist", () => {
+    expect(guessTrackMeta("Yellow (Karaoke Version)", "Sing King")).toEqual({
+      artist: null,
+      title: "Yellow",
+    });
+    expect(guessTrackMeta("Yellow (Instrumental)", "Sing King")).toEqual({
+      artist: null,
+      title: "Yellow",
+    });
+  });
+
+  it("still prefers a real artist over a bracketed one", () => {
+    expect(guessTrackMeta("Coldplay - Yellow (Official Video)", "Coldplay")).toEqual({
+      artist: "Coldplay",
+      title: "Yellow",
+    });
+  });
 });

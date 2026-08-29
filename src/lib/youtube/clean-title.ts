@@ -85,13 +85,21 @@ export function guessTrackMeta(rawTitle: string, channel: string): TrackGuess {
     quotedTitle = tidy(title);
     return " ";
   });
-  text = text.replace(BRACKETS, " ");
+  let bracketArtist: string | null = null;
+  text = text.replace(BRACKETS, (match) => {
+    const inner = tidy(match.replace(/^[\s(\[{]+/, "").replace(/[)\]}]+$/, ""));
+    // A bracket the noise filter leaves untouched is usually an artist credit, as in
+    // "Yellow - Acoustic karaoke (Coldplay)". Without it LRCLIB matches on the title alone and
+    // happily returns a different song of the same name.
+    if (inner && tidy(inner.replace(NOISE_WORD, " ")) === inner) bracketArtist ??= inner;
+    return " ";
+  });
   text = text.replace(NOISE_WORD, " ");
 
   const parts = text.split(SEPARATORS).map(tidy).filter(Boolean);
 
   if (quotedTitle) {
-    return { artist: parts[0] ?? styleArtist, title: quotedTitle };
+    return { artist: parts[0] ?? styleArtist ?? bracketArtist, title: quotedTitle };
   }
   if (styleArtist) {
     return { artist: styleArtist, title: parts[0] ?? tidy(rawTitle) };
@@ -103,5 +111,5 @@ export function guessTrackMeta(rawTitle: string, channel: string): TrackGuess {
   if (parts.length === 2) {
     return { artist: parts[0]!, title: parts[1]! };
   }
-  return { artist: null, title: parts[0] ?? tidy(rawTitle) };
+  return { artist: bracketArtist, title: parts[0] ?? tidy(rawTitle) };
 }

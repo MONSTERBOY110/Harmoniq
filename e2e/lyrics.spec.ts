@@ -37,13 +37,21 @@ test.describe("lyric timing", () => {
     );
     await expect(host.page.locator("[data-slot=lyric-sweep]")).toBeVisible();
 
-    // The lyric clock tracks the player clock rather than sitting at zero.
+    // The lyric clock tracks the player clock. It does not sit at the same value: a karaoke intro
+    // of up to 30 s puts the words behind the video on purpose, and the clock starts negative
+    // because the first line has not arrived yet. So compare how the two clocks move, not where
+    // they sit, which is what "tracks the player clock" actually means.
+    const before = await lyricState(host.page);
     await expect
-      .poll(async () => (await lyricState(host.page)).lyricTimeMs ?? 0, { timeout: 30_000 })
-      .toBeGreaterThan(1_000);
+      .poll(async () => (await lyricState(host.page)).positionMs ?? 0, { timeout: 30_000 })
+      .toBeGreaterThan((before.positionMs ?? 0) + 2_000);
     const running = await lyricState(host.page);
     expect(running.lyricLines ?? 0).toBeGreaterThan(3);
-    expect(Math.abs((running.lyricTimeMs ?? 0) - (running.positionMs ?? 0))).toBeLessThan(1_500);
+    const played = (running.positionMs ?? 0) - (before.positionMs ?? 0);
+    const lyricsMoved = (running.lyricTimeMs ?? 0) - (before.lyricTimeMs ?? 0);
+    expect(Math.abs(lyricsMoved - played), "the lyric clock drifted from the player").toBeLessThan(
+      500,
+    );
 
     // Yellow does not sing for half a minute: the panel counts down instead of looking frozen.
     const intro = host.page.locator("[data-slot=lyric-intro]");
