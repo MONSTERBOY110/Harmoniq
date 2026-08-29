@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Harmoniq">
+  <!-- The stage in miniature: a dark ground with three level bars lit rose, amber and teal. -->
+  <rect width="32" height="32" rx="7" fill="#0E0F0F" />
+  <rect x="6.5" y="13" width="5" height="12" rx="2.5" fill="#E4577E" />
+  <rect x="13.5" y="7" width="5" height="18" rx="2.5" fill="#E9A84A" />
+  <rect x="20.5" y="10" width="5" height="15" rx="2.5" fill="#5FD3C8" />
+</svg>

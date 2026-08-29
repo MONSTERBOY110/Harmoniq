@@ -1,0 +1,100 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function room(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+
+    function isMember(code) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/rooms/$(code)/members/$(request.auth.uid));
+    }
+
+    function isHost(code) {
+      return signedIn() && room(code).hostUid == request.auth.uid;
+    }
+
+    function unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // users/{uid}: public profile basics, written only by the owner.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if isSelf(uid)
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 40;
+      allow update: if isSelf(uid)
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 40
+        && unchanged(['createdAt']);
+      allow delete: if false;
+
+      // Server-written mirror of rooms this user has joined.
+      match /recentRooms/{code} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+    }
+
+    // rooms/{code}
+    match /rooms/{code} {
+      allow read: if signedIn() && (resource.data.visibility == 'public' || isMember(code));
+      allow create: if signedIn()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.code == code
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 60;
+      // Host can rename or change settings. Code, creation time, host, and member count are server-managed.
+      allow update: if isHost(code) && unchanged(['code', 'createdAt', 'hostUid', 'memberCount']);
+      allow delete: if isHost(code);
+
+      match /members/{uid} {
+        allow read: if isMember(code);
+        allow create: if isSelf(uid) && request.resource.data.role == 'member';
+        allow update: if (isSelf(uid) && unchanged(['role', 'joinedAt'])) || isHost(code);
+        allow delete: if isSelf(uid) || isHost(code);
+      }
+
+      match /queue/{itemId} {
+        allow read: if isMember(code);
+        allow create: if isMember(code)
+          && request.resource.data.addedByUid == request.auth.uid
+          && (room(code).settings.anyoneCanQueue == true || isHost(code));
+        allow update, delete: if isHost(code)
+          || (resource.data.addedByUid == request.auth.uid && resource.data.status == 'queued');
+      }
+
+      match /playback/{doc} {
+        allow read: if isMember(code);
+        allow write: if isHost(code);
+      }
+
+      match /messages/{messageId} {
+        allow read: if isMember(code);
+        allow create: if isMember(code)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+        allow update, delete: if false;
+      }
+    }
+
+    // lyricsCache/{key}: written by the server only.
+    match /lyricsCache/{key} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+  }
+}
